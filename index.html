@@ -616,6 +616,16 @@
 
 <script>
 
+  document.getElementById("sensorTopicDisplay").innerText =
+  MQTT_CONFIG.topics.sensor;
+
+document.getElementById("ledCommandTopicDisplay").innerText =
+  MQTT_CONFIG.topics.ledCommand;
+
+document.getElementById("ledStatusTopicDisplay").innerText =
+  MQTT_CONFIG.topics.ledStatus;
+
+
   // const sensorTopic = "iot/lab/labtf/sensors";
   const sensorTopic = "iot/lab/coh/sensors";
 
