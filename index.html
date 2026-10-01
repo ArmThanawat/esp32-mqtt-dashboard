@@ -1,213 +1,1024 @@
 <!DOCTYPE html>
-
-<html>
-
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab 4 IoT Dashboard</title>
 
-<title>IoT Control Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<script src=
-"https://unpkg.com/mqtt/dist/mqtt.min.js">
-</script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-<style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #eef2f7;
+      color: #1e293b;
+      margin: 0;
+    }
 
-body {
-    font-family: Arial;
-    text-align: center;
-    margin-top: 40px;
-}
+    header {
+      background: linear-gradient(135deg, #111827, #1e3a5f);
+      color: white;
+      padding: 32px 20px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
 
-.dashboard {
-    width: 400px;
-    margin: auto;
-    padding: 30px;
-    border: 1px solid #ccc;
-    border-radius: 12px;
-}
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
 
-.temperature {
-    font-size: 48px;
-    margin: 20px;
-}
+    header p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 15px;
+    }
 
-button {
-    font-size: 20px;
-    padding: 12px 25px;
-    margin: 10px;
-}
+    .container {
+      max-width: 1100px;
+      margin: 30px auto 50px;
+      padding: 0 20px;
+    }
 
-.status {
-    margin-top: 20px;
-}
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 22px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.06);
+    }
 
-</style>
+    .card h2 {
+      margin-top: 0;
+      color: #0f172a;
+      font-size: 20px;
+    }
 
+    /* MQTT Connection */
+
+    .connection-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .connection-title {
+      margin: 0 0 8px;
+      font-size: 20px;
+    }
+
+    .connection-info {
+      margin: 5px 0;
+      color: #64748b;
+    }
+
+    .topic {
+      font-family: monospace;
+      background: #f1f5f9;
+      color: #334155;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 13px;
+    }
+
+    .status-box {
+      background: #f8fafc;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .connected {
+      color: #16a34a;
+      font-weight: bold;
+    }
+
+    .disconnected {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    /* Sensor Cards */
+
+    .sensor-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .sensor-card {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.06);
+      transition: 0.2s;
+    }
+
+    .sensor-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(15, 23, 42, 0.10);
+    }
+
+    .sensor-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 25px;
+    }
+
+    .temp-icon {
+      background: #fee2e2;
+    }
+
+    .humidity-icon {
+      background: #dbeafe;
+    }
+
+    .light-icon {
+      background: #fef3c7;
+    }
+
+    .sensor-card h2 {
+      margin: 5px 0;
+      font-size: 17px;
+      color: #475569;
+    }
+
+    .temperature,
+    .humidity,
+    .light {
+      font-size: 40px;
+      font-weight: bold;
+      margin: 12px 0 0;
+    }
+
+    .temperature {
+      color: #ef4444;
+    }
+
+    .humidity {
+      color: #2563eb;
+    }
+
+    .light {
+      color: #d97706;
+    }
+
+    /* Charts */
+
+    .chart-card {
+      padding-bottom: 30px;
+    }
+
+    .chart-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .chart-title h2 {
+      margin: 0;
+    }
+
+    .chart-label {
+      font-size: 12px;
+      color: #94a3b8;
+      background: #f8fafc;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+
+    canvas {
+      max-height: 250px;
+    }
+
+    /* Device Information */
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .info-item {
+      background: #f8fafc;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .info-label {
+      display: block;
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      font-weight: bold;
+      color: #0f172a;
+      word-break: break-word;
+    }
+
+    /* LED */
+
+    .led-control {
+      text-align: center;
+    }
+
+    .led-control h2 {
+      margin-bottom: 20px;
+    }
+
+    button {
+      font-size: 15px;
+      font-weight: bold;
+      padding: 12px 30px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-on {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-on:hover {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+
+    .btn-off {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-off:hover {
+      background: #b91c1c;
+      transform: translateY(-1px);
+    }
+
+    .led-status {
+      margin-top: 18px;
+      color: #64748b;
+    }
+
+    /* Message History */
+
+    #history {
+      text-align: left;
+      max-height: 220px;
+      overflow-y: auto;
+      font-family: monospace;
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 15px;
+      border-radius: 10px;
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    footer {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 10px 20px 30px;
+    }
+
+    /* Mobile */
+
+    @media (max-width: 750px) {
+
+      header h1 {
+        font-size: 26px;
+      }
+
+      .sensor-container {
+        grid-template-columns: 1fr;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .connection-card {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
-
 
 <body>
 
-<div class="dashboard">
+<header>
+  <h1>ESP32 IoT Dashboard</h1>
+  <p>Real-time MQTT Sensor Monitoring & LED Control</p>
+</header>
 
-<h1>IoT Dashboard</h1>
+<div class="container">
+
+  <!-- MQTT Connection -->
+
+  <div class="card connection-card">
+
+    <div>
+      <h2 class="connection-title">MQTT Connection</h2>
+
+      <p class="connection-info">
+        Sensor Topic:
+        <span id="topicName" class="topic">
+          iot/lab/coh/sensors
+        </span>
+      </p>
+    </div>
+
+    <div class="status-box">
+      Status:
+      <span id="status" class="disconnected">
+        Connecting...
+      </span>
+    </div>
+
+  </div>
 
 
-<h2>Temperature</h2>
+  <!-- Live Sensor Values -->
 
-<div
-    id="temperature"
-    class="temperature">
+  <div class="sensor-container">
 
-    -- °C
+    <div class="sensor-card">
+
+      <div class="sensor-icon temp-icon">
+        🌡️
+      </div>
+
+      <h2>Temperature</h2>
+
+      <div id="temperature" class="temperature">
+        -- °C
+      </div>
+
+    </div>
+
+
+    <div class="sensor-card">
+
+      <div class="sensor-icon humidity-icon">
+        💧
+      </div>
+
+      <h2>Humidity</h2>
+
+      <div id="humidity" class="humidity">
+        -- %
+      </div>
+
+    </div>
+
+
+    <div class="sensor-card">
+
+      <div class="sensor-icon light-icon">
+        ☀️
+      </div>
+
+      <h2>Light Level</h2>
+
+      <div id="light" class="light">
+        --
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- Temperature Chart -->
+
+  <div class="card chart-card">
+
+    <div class="chart-title">
+
+      <h2>Temperature History</h2>
+
+      <span class="chart-label">
+        °C
+      </span>
+
+    </div>
+
+    <canvas id="tempChart"></canvas>
+
+  </div>
+
+
+  <!-- Humidity Chart -->
+
+  <div class="card chart-card">
+
+    <div class="chart-title">
+
+      <h2>Humidity History</h2>
+
+      <span class="chart-label">
+        %
+      </span>
+
+    </div>
+
+    <canvas id="humidityChart"></canvas>
+
+  </div>
+
+
+  <!-- Light Chart -->
+
+  <div class="card chart-card">
+
+    <div class="chart-title">
+
+      <h2>Light History</h2>
+
+      <span class="chart-label">
+        Light Level
+      </span>
+
+    </div>
+
+    <canvas id="lightChart"></canvas>
+
+  </div>
+
+
+  <!-- Device Information -->
+
+  <div class="card">
+
+    <h2>Device Information</h2>
+
+    <div class="info-grid">
+
+      <div class="info-item">
+
+        <span class="info-label">
+          Device
+        </span>
+
+        <span class="info-value" id="deviceId">
+          Waiting...
+        </span>
+
+      </div>
+
+
+      <div class="info-item">
+
+        <span class="info-label">
+          Message Number
+        </span>
+
+        <span class="info-value" id="sequenceNumber">
+          0
+        </span>
+
+      </div>
+
+
+      <div class="info-item">
+
+        <span class="info-label">
+          ESP32 Uptime
+        </span>
+
+        <span class="info-value" id="deviceUptime">
+          0 ms
+        </span>
+
+      </div>
+
+
+      <div class="info-item">
+
+        <span class="info-label">
+          Dashboard Messages
+        </span>
+
+        <span class="info-value" id="messageCounter">
+          0
+        </span>
+
+      </div>
+
+
+      <div class="info-item">
+
+        <span class="info-label">
+          Last Message
+        </span>
+
+        <span class="info-value" id="messageTime">
+          Waiting for data...
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- LED Control -->
+
+  <div class="card led-control">
+
+    <h2>LED Control</h2>
+
+    <button class="btn-on" onclick="ledOn()">
+      TURN ON
+    </button>
+
+    <button class="btn-off" onclick="ledOff()">
+      TURN OFF
+    </button>
+
+    <div class="led-status">
+
+      LED Status:
+
+      <strong id="ledStatus" style="color: #64748b;">
+        Unknown
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <!-- Message History -->
+
+  <div class="card">
+
+    <h2>Message History</h2>
+
+    <div id="history">
+      Waiting for MQTT messages...
+    </div>
+
+  </div>
 
 </div>
 
 
-<h2>LED Control</h2>
-
-<button onclick="ledOn()">
-ON
-</button>
-
-<button onclick="ledOff()">
-OFF
-</button>
-
-
-<h3>
-LED Status:
-<span id="ledStatus">
-Unknown
-</span>
-</h3>
-
-
-<p
-    id="mqttStatus"
-    class="status">
-
-Connecting...
-
-</p>
-
-</div>
+<footer>
+  ESP32 MQTT Dashboard • IoT Lab 4
+</footer>
 
 
 <script>
 
-const broker =
+  const sensorTopic = "iot/lab/coh/sensors";
+
+  const ledCommandTopic = "iot/lab/led/set";
+
+  const ledStatusTopic = "iot/lab/led/status";
+
+  const broker =
     "wss://broker.hivemq.com:8884/mqtt";
 
-const client =
-    mqtt.connect(broker);
+
+  let messageCount = 0;
 
 
-// --------------------------------------
-// MQTT Connected
-// --------------------------------------
+  const clientId =
+    "github_dashboard_" +
+    Math.random()
+      .toString(16)
+      .substring(2, 10);
 
-client.on(
+
+  const MAX_POINTS = 50;
+
+
+  // Create Charts
+
+  const createSingleChart =
+    (elementId, label, color) =>
+
+    new Chart(
+      document.getElementById(elementId),
+      {
+        type: "line",
+
+        data: {
+
+          labels: [],
+
+          datasets: [
+            {
+              label: label,
+
+              data: [],
+
+              borderColor: color,
+
+              backgroundColor: color + "22",
+
+              fill: true,
+
+              tension: 0.3
+            }
+          ]
+
+        },
+
+        options: {
+
+          responsive: true,
+
+          animation: false,
+
+          scales: {
+
+            y: {
+              beginAtZero: false
+            }
+
+          }
+
+        }
+
+      }
+    );
+
+
+  const tempChart =
+    createSingleChart(
+      "tempChart",
+      "Temperature (°C)",
+      "#ef4444"
+    );
+
+
+  const humidityChart =
+    createSingleChart(
+      "humidityChart",
+      "Humidity (%)",
+      "#3b82f6"
+    );
+
+
+  const lightChart =
+    createSingleChart(
+      "lightChart",
+      "Light Level",
+      "#f59e0b"
+    );
+
+
+  // Add Data To Chart
+
+  function pushData(chart, label, value) {
+
+    chart.data.labels.push(label);
+
+    chart.data.datasets[0].data.push(value);
+
+
+    if (
+      chart.data.labels.length >
+      MAX_POINTS
+    ) {
+
+      chart.data.labels.shift();
+
+      chart.data.datasets[0].data.shift();
+
+    }
+
+
+    chart.update();
+
+  }
+
+
+  // MQTT Connection
+
+  const client =
+    mqtt.connect(
+      broker,
+      {
+        clientId: clientId,
+        clean: true
+      }
+    );
+
+
+  client.on(
     "connect",
-    function()
-    {
-        document.getElementById(
-            "mqttStatus"
-        ).innerText =
-            "MQTT Connected";
+    function() {
 
-        client.subscribe(
-            "iot/lab/temperature"
-        );
+      const status =
+        document.getElementById("status");
 
-        client.subscribe(
-            "iot/lab/led/status"
-        );
+
+      status.textContent =
+        "Connected";
+
+
+      status.className =
+        "connected";
+
+
+      client.subscribe(
+        sensorTopic
+      );
+
+
+      client.subscribe(
+        ledStatusTopic
+      );
+
     }
-);
+  );
 
 
-// --------------------------------------
-// Receive MQTT Messages
-// --------------------------------------
+  // Receive MQTT Messages
 
-client.on(
+  client.on(
     "message",
-    function(topic, message)
-    {
-        const value =
-            message.toString();
+    function(topic, message) {
 
-        if (
-            topic ==
-            "iot/lab/temperature"
-        )
-        {
+      const value =
+        message.toString();
+
+
+      const timeString =
+        new Date().toLocaleTimeString();
+
+
+      messageCount++;
+
+
+      document.getElementById(
+        "messageCounter"
+      ).innerText =
+        messageCount;
+
+
+      document.getElementById(
+        "messageTime"
+      ).innerText =
+        timeString;
+
+
+      // Sensor Message
+
+      if (topic === sensorTopic) {
+
+        try {
+
+          const data =
+            JSON.parse(value);
+
+
+          if (data.device) {
+
             document.getElementById(
+              "deviceId"
+            ).innerText =
+              data.device;
+
+          }
+
+
+          if (
+            typeof data.sequence ===
+            "number"
+          ) {
+
+            document.getElementById(
+              "sequenceNumber"
+            ).innerText =
+              data.sequence;
+
+          }
+
+
+          if (
+            typeof data.timestamp ===
+            "number"
+          ) {
+
+            document.getElementById(
+              "deviceUptime"
+            ).innerText =
+
+              `${data.timestamp} ms ` +
+              `(${(
+                data.timestamp / 1000
+              ).toFixed(1)}s)`;
+
+          }
+
+
+          if (data.sensors) {
+
+            const temp =
+              data.sensors.temperature;
+
+            const hum =
+              data.sensors.humidity;
+
+            const light =
+              data.sensors.light;
+
+
+            if (
+              typeof temp === "number"
+            ) {
+
+              document.getElementById(
                 "temperature"
-            ).innerText =
-                value + " °C";
+              ).innerText =
+                temp + " °C";
+
+
+              pushData(
+                tempChart,
+                timeString,
+                temp
+              );
+
+            }
+
+
+            if (
+              typeof hum === "number"
+            ) {
+
+              document.getElementById(
+                "humidity"
+              ).innerText =
+                hum + " %";
+
+
+              pushData(
+                humidityChart,
+                timeString,
+                hum
+              );
+
+            }
+
+
+            if (
+              typeof light === "number"
+            ) {
+
+              document.getElementById(
+                "light"
+              ).innerText =
+                light;
+
+
+              pushData(
+                lightChart,
+                timeString,
+                light
+              );
+
+            }
+
+          }
+
         }
 
-        if (
-            topic ==
-            "iot/lab/led/status"
-        )
-        {
-            document.getElementById(
-                "ledStatus"
-            ).innerText =
-                value;
+        catch (error) {
+
+          console.warn(
+            "Invalid JSON:",
+            value,
+            error
+          );
+
         }
-    }
-);
+
+      }
 
 
-// --------------------------------------
-// LED ON
-// --------------------------------------
+      // LED Status
 
-function ledOn()
-{
-    client.publish(
-        "iot/lab/led/set",
-        "ON"
-    );
-}
+      else if (
+        topic === ledStatusTopic
+      ) {
 
-
-// --------------------------------------
-// LED OFF
-// --------------------------------------
-
-function ledOff()
-{
-    client.publish(
-        "iot/lab/led/set",
-        "OFF"
-    );
-}
+        const ledStatusElem =
+          document.getElementById(
+            "ledStatus"
+          );
 
 
-// --------------------------------------
-// MQTT Error
-// --------------------------------------
+        ledStatusElem.innerText =
+          value;
 
-client.on(
-    "error",
-    function(error)
-    {
+
+        ledStatusElem.style.color =
+          (
+            value.toUpperCase() === "ON"
+          )
+            ? "#16a34a"
+            : "#dc2626";
+
+      }
+
+
+      // Message History
+
+      const history =
         document.getElementById(
-            "mqttStatus"
-        ).innerText =
-            "MQTT Error";
+          "history"
+        );
 
-        console.log(error);
+
+      if (
+        history.textContent.includes(
+          "Waiting for MQTT messages"
+        )
+      ) {
+
+        history.textContent = "";
+
+      }
+
+
+      const newMessage =
+        document.createElement("div");
+
+
+      newMessage.textContent =
+        `${timeString} | ${topic} -> ${value}`;
+
+
+      history.prepend(
+        newMessage
+      );
+
     }
-);
+  );
+
+
+  // LED ON
+
+  function ledOn() {
+
+    if (client.connected) {
+
+      client.publish(
+        ledCommandTopic,
+        "ON"
+      );
+
+    }
+
+  }
+
+
+  // LED OFF
+
+  function ledOff() {
+
+    if (client.connected) {
+
+      client.publish(
+        ledCommandTopic,
+        "OFF"
+      );
+
+    }
+
+  }
 
 </script>
 
 </body>
-
 </html>
